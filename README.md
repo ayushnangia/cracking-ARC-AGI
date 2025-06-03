@@ -7,7 +7,7 @@ And they hold up.
 
 Oh also, its dirt cheap.
 
-![alt text](visualisations/example.png)
+![Examples of NCAs partially and fully solving tasks](visualisations/example.png)
 
 | Dataset | Tasks | Full Solves | Almost Solved (>=95% pixel accuracy) |
 |---------|-------------|---------------|---------------|
