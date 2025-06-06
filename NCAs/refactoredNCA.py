@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import numpy as np
 import torch
 import torch.nn as nn
@@ -10,7 +11,7 @@ from typing import List, Dict, Any, Tuple
 # --- 1. SETTINGS & PATHS (EDIT THESE) ---
 
 # For local run
-ARC_DATA_DIR = "../dataset/ARC-2/groupedJSON"
+ARC_DATA_DIR = "../dataset/script-tests/grouped-tasks"
 OUTPUT_DIR = "./runs"
 
 # Uncomment for Kaggle
@@ -18,7 +19,7 @@ OUTPUT_DIR = "./runs"
 # OUTPUT_DIR = "/kaggle/working"
 
 # Change this to `arc-agi_test_challenges.json` for submission.
-INPUT_JSON_FILE = os.path.join(ARC_DATA_DIR, "evaluation", "challenges.json")
+INPUT_JSON_FILE = os.path.join(ARC_DATA_DIR, "challenges.json")
 CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
 SUBMISSION_FILE = os.path.join(OUTPUT_DIR, "submission.json")
 
@@ -30,16 +31,16 @@ os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 HPARAMS: Dict[str, Any] = {
     "grid_size": 30,
     "n_classes": 11,
-    "in_channels": 16, # 11 for color one-hot, 5 for hidden state
-    "hidden_channels": 5,
+    "in_channels": 20, # 11 for color one-hot, 5 for hidden state
+    "hidden_channels": 9,
     "nn_hidden_dim": 128,
     "lr": 1e-3,
     "weight_decay": 1e-4,
-    "num_iterations": 2000,
-    "batch_size": 4,
+    "num_iterations": 1000,
+    "batch_size": 15,
     "prediction_steps": 30,
-    "train_steps_min": 16,
-    "train_steps_max": 24
+    "train_steps_min": 30,
+    "train_steps_max": 30
 }
 
 # --- 2. The CellularNN Model ---
@@ -166,7 +167,7 @@ def train_and_predict_for_task(
         hparams['in_channels'], hparams['n_classes'], hparams['nn_hidden_dim']
     ).to(device)
     optimizer = torch.optim.Adam(
-        model.parameters(), lr=hparams['lr'], weight_decay=hparams['wd']
+        model.parameters(), lr=hparams['lr'], weight_decay=hparams['weight_decay']
     )
 
     # 2. Data Preparation (No DataLoader)
@@ -233,11 +234,10 @@ def train_and_predict_for_task(
 # --- 5. Main Execution Block ---
 
 if __name__ == "__main__":
-    start_time = torch.cuda.Event(enable_timing=True)
-    end_time = torch.cuda.Event(enable_timing=True)
+    script_start_time = time.time()
     
     # Setup
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(f"Using device: {device}")
 
     # Load data
@@ -291,6 +291,10 @@ if __name__ == "__main__":
     with open(SUBMISSION_FILE, 'w') as f:
         json.dump(submission, f)
 
+    script_end_time = time.time()
+    total_time = script_end_time - script_start_time
+
     print("\n-----------------------------------------")
     print(f"Success! Submission file saved to {SUBMISSION_FILE}")
+    print(f"Total execution time: {total_time:.2f} seconds")
     print("-----------------------------------------")
