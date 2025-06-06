@@ -71,7 +71,7 @@ CONFIG: Dict[str, Any] = {
     },
     "batch_tasks": {
         # DIRECTORY containing the .json task files to process
-        "tasks_directory": "dataset/ARC-1/data/training", # Relative to script_base or colab_base
+        "tasks_directory": "../dataset/script-tests/separate-tasks", # Relative to script_base or colab_base
         # Limit the number of tasks processed? Set to None to process all found.
         "max_tasks_to_process": None, # Example: 50
         # Limit pairs per task? Set to None to load all pairs.

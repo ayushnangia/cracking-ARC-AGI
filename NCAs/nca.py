@@ -7,12 +7,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from typing import List, Dict, Any, Tuple
+import datetime
 
 # --- 1. SETTINGS & PATHS (EDIT THESE) ---
-
 # For local run
 ARC_DATA_DIR = "../dataset/script-tests/grouped-tasks"
-OUTPUT_DIR = "./runs"
+timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M%S") # Format: YYMMDD_HHMMSS
+OUTPUT_DIR = os.path.join("./runs", f"test_{timestamp}")
+
 
 # Uncomment for Kaggle
 # ARC_DATA_DIR = "/kaggle/input/arc-prize-2024"
@@ -66,16 +68,38 @@ class CellularNN(nn.Module):
         nn.init.zeros_(self.fc2.bias)
 
     def get_neighbor_states(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Alternative implementation to get neighbor states using padding and slicing,
+        aiming to avoid F.unfold and its potential MPS fallback for 'col2im'.
+        """
         # We only care about the one-hot color state of neighbors
-        state = x[:, :self.n_classes]
-        # Use unfold to get 3x3 patches, with padding of 1
-        patches = F.unfold(state, kernel_size=3, padding=1)
-        # Reshape to [B, C_state, K*K, H*W] -> [B, C_state, K*K, H, W]
-        patches = patches.view(x.shape[0], self.n_classes, 9, x.shape[2], x.shape[3])
-        # Drop the center patch (index 4)
-        neighbor = torch.cat([patches[:,:,:4], patches[:,:,5:]], dim=2)
-        # Flatten back to [B, C_state * 8, H, W]
-        return neighbor.reshape(x.shape[0], self.n_classes * 8, x.shape[2], x.shape[3])
+        color_state = x[:, :self.n_classes]  # Shape: [B, n_classes, H, W]
+        B, C_state, H, W = color_state.shape
+
+        # Pad the color_state to handle boundaries easily.
+        # Padding is (pad_left, pad_right, pad_top, pad_bottom) for the last two dims.
+        padded_color_state = F.pad(color_state, (1, 1, 1, 1), mode='constant', value=0.0)
+        # padded_color_state shape: [B, n_classes, H+2, W+2]
+
+        neighbor_tensors = []
+
+        # Iterate through the 3x3 neighborhood offsets, skipping the center (0,0)
+        for r_offset in range(-1, 2):  # -1, 0, 1
+            for c_offset in range(-1, 2):  # -1, 0, 1
+                if r_offset == 0 and c_offset == 0:
+                    continue  # Skip the center cell itself
+
+                start_row = r_offset + 1
+                end_row = start_row + H
+                start_col = c_offset + 1
+                end_col = start_col + W
+
+                neighbor_slice = padded_color_state[:, :, start_row:end_row, start_col:end_col]
+                neighbor_tensors.append(neighbor_slice)
+
+        all_neighbors = torch.cat(neighbor_tensors, dim=1)
+        return all_neighbors
+
 
     def perceive(self, x: torch.Tensor) -> torch.Tensor:
         neighbor_channels = self.get_neighbor_states(x)
@@ -122,9 +146,10 @@ def tensor_to_grid(state_tensor: torch.Tensor, n_classes: int) -> List[List[int]
     # Convert channel indices back to ARC color values. Channel 0 is empty, Channel 1 is color 0, etc.
     grid = (pred_indices - 1).tolist()
     # Replace -1 (from channel 0) with 0.
-    return [[max(0, cell) for cell in row] for row in grid]
+    # return [[max(0, cell) for cell in row] for row in grid]
+    return grid
 
-def depad_grid(grid: List[List[int]], padding_value: int = 0) -> List[List[int]]:
+def depad_grid(grid: List[List[int]], padding_value: int = -1) -> List[List[int]]:
     """Removes padding from a grid by finding the smallest bounding box containing non-padding values."""
     if not grid or not grid[0]:
         return [[padding_value]]
@@ -225,10 +250,11 @@ def train_and_predict_for_task(
             for _ in range(hparams['prediction_steps']):
                 state = model(state)
 
-            final_grid = tensor_to_grid(state.squeeze(0), hparams['n_classes'])
-            depadded_grid = depad_grid(final_grid)
-            predicted_grids.append(depadded_grid)
-    
+            grid_from_tensor = tensor_to_grid(state.squeeze(0), hparams['n_classes'])
+            depadded_grid = depad_grid(grid_from_tensor)
+            final_output_grid = [[max(0, cell) for cell in row] for row in depadded_grid] # Convert any remaining internal -1s to 0 (black)
+            predicted_grids.append(final_output_grid)
+
     return predicted_grids
 
 # --- 5. Main Execution Block ---
