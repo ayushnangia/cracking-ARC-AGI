@@ -10,16 +10,15 @@ from typing import List, Dict, Any, Tuple
 # --- 1. SETTINGS & PATHS (EDIT THESE) ---
 
 # For local run
-ARC_DATA_DIR = "../dataset/ARC-1/groupedJSON"
-OUTPUT_DIR = "./output"
+ARC_DATA_DIR = "../dataset/ARC-2/groupedJSON"
+OUTPUT_DIR = "./runs"
 
 # Uncomment for Kaggle
 # ARC_DATA_DIR = "/kaggle/input/arc-prize-2024"
 # OUTPUT_DIR = "/kaggle/working"
 
-# NOTE: The user plan specified `arc-agi_test_challenges.json`, but we'll use a training set for a runnable example.
 # Change this to `arc-agi_test_challenges.json` for submission.
-INPUT_JSON_FILE = os.path.join(ARC_DATA_DIR, "training", "arc-agi_training_challenges.json")
+INPUT_JSON_FILE = os.path.join(ARC_DATA_DIR, "evaluation", "challenges.json")
 CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
 SUBMISSION_FILE = os.path.join(OUTPUT_DIR, "submission.json")
 
@@ -295,6 +294,3 @@ if __name__ == "__main__":
     print("\n-----------------------------------------")
     print(f"Success! Submission file saved to {SUBMISSION_FILE}")
     print("-----------------------------------------")
-
-
-

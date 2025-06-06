@@ -5,7 +5,7 @@ I benchmarked unmodified Neural Cellular Automata (NCAs) on all public tasks fro
 
 Oh also, its dirt cheap.
 
-![Examples of NCAs partially and fully solving tasks](visualisations/example.png)
+![Examples of NCAs partially and fully solving tasks](./results/vanillaNCA-v1/visualisations/example.png)
 
 | Dataset | Tasks | Almost Solved (>=95% pixel accuracy) | Full Solves | 
 |---------|-------------|---------------|---------------|
