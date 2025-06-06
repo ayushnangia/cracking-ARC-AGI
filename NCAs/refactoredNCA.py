@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Tuple
 # --- 1. SETTINGS & PATHS (EDIT THESE) ---
 
 # For local run
-ARC_DATA_DIR = "./dataset/ARC-1/data"
+ARC_DATA_DIR = "../dataset/ARC-1/groupedJSON"
 OUTPUT_DIR = "./output"
 
 # Uncomment for Kaggle
