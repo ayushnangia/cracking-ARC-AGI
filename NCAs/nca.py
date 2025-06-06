@@ -15,12 +15,10 @@ ARC_DATA_DIR = "../dataset/script-tests/grouped-tasks"
 timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M%S") # Format: YYMMDD_HHMMSS
 OUTPUT_DIR = os.path.join("./runs", f"test_{timestamp}")
 
-
 # Uncomment for Kaggle
 # ARC_DATA_DIR = "/kaggle/input/arc-prize-2024"
 # OUTPUT_DIR = "/kaggle/working"
 
-# Change this to `arc-agi_test_challenges.json` for submission.
 INPUT_JSON_FILE = os.path.join(ARC_DATA_DIR, "challenges.json")
 CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
 SUBMISSION_FILE = os.path.join(OUTPUT_DIR, "submission.json")
