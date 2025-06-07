@@ -36,7 +36,7 @@ HPARAMS: Dict[str, Any] = {
     "lr": 1e-3,
     "weight_decay": 1e-4,
     "num_iterations": 1000, # Total training iterations for the multi-NCA model
-    "batch_size_per_task": 15, # BATCH_SIZE for each task when forming a mega-batch
+    "batch_size_per_task": 5, # BATCH_SIZE for each task when forming a mega-batch
     "prediction_steps": 30,
     "train_steps_min": 30, # Min NCA update steps per training iteration
     "train_steps_max": 30  # Max NCA update steps per training iteration

@@ -7,17 +7,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from typing import List, Dict, Any, Tuple
-import datetime
 
-# --- 1. SETTINGS & PATHS (EDIT THESE) ---
-# For local run
-ARC_DATA_DIR = "../dataset/script-tests/grouped-tasks"
+import datetime
 timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M%S") # Format: YYMMDD_HHMMSS
+
+# --- 1. SETTINGS & PATHS ---
+# Uncomment for local mac silicon run
+ARC_DATA_DIR = "../dataset/script-tests/grouped-tasks"
 OUTPUT_DIR = os.path.join("./runs", f"test_{timestamp}")
 
 # Uncomment for Kaggle
 # ARC_DATA_DIR = "/kaggle/input/arc-prize-2024"
 # OUTPUT_DIR = "/kaggle/working"
+
+# Uncomment for Google Colab run
+# from google.colab import drive
+# drive.mount('/content/drive')
+# ARC_DATA_DIR = "/content/drive/MyDrive/Cracking-ARC-AGI/dataset/script-tests/grouped-tasks"
+# OUTPUT_DIR = os.path.join("/content/drive/MyDrive/Cracking-ARC-AGI/NCAs", f"test_{timestamp}")
 
 INPUT_JSON_FILE = os.path.join(ARC_DATA_DIR, "challenges.json")
 CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
@@ -36,8 +43,7 @@ HPARAMS: Dict[str, Any] = {
     "nn_hidden_dim": 128,
     "lr": 1e-3,
     "weight_decay": 1e-4,
-    "num_iterations": 1000,
-    "batch_size": 15,
+    "num_iterations": 400,
     "prediction_steps": 30,
     "train_steps_min": 30,
     "train_steps_max": 30
@@ -207,10 +213,8 @@ def train_and_predict_for_task(
     # 3. Training Loop
     model.train()
     for i in range(hparams['num_iterations']):
-        batch_indices = np.random.choice(len(train_input_tensors), hparams['batch_size'])
-        
-        inp_batch = torch.stack([train_input_tensors[j] for j in batch_indices]).to(device)
-        target_batch = torch.stack([train_target_tensors[j] for j in batch_indices]).to(device)
+        inp_batch = torch.stack(train_input_tensors).to(device)
+        target_batch = torch.stack(train_target_tensors).to(device)
 
         optimizer.zero_grad()
 
