@@ -1,3 +1,6 @@
+# This code is for GPU parallelisation. It works on apple silicon. Minor modifications are needed for other platforms.
+# For kaggle or google, you can use the g-prl-nca.py file.
+
 import os
 import json
 import time

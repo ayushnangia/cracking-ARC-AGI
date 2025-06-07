@@ -1,4 +1,5 @@
-# This code is for running the NCA on Google Colab in a parallelized manner.
+# This code is for running the NCA on Google Colab in a parallelized manner. 
+# This needs the g_nca_worker.py to be a separate file due to how google colab handles gpu code.
 # It works on L4 and A100 GPUs
 # Ensure you upload g_nca_worker.py to the correct directory.
 

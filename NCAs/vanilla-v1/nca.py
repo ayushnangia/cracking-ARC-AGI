@@ -1,3 +1,5 @@
+# Plain and single-threaded vanilla NCA. No parallelisation.
+
 import os
 import json
 import time

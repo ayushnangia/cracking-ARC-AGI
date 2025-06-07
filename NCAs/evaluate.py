@@ -1,3 +1,6 @@
+# This is the evaluation script for the ARC-AGI challenge.
+# Generates the result metrics and visualization.pdf files.
+
 import json
 import csv
 import os

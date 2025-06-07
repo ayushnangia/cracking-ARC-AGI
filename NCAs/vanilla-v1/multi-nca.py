@@ -1,3 +1,7 @@
+# THIS IS A WORK IN PROGRESS
+# Many plain vanilla NCA models combined into a large Multi-NCA model to get parallelisation.
+# No GPU shenanigans.
+
 import os
 import json
 import time
