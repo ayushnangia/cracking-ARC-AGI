@@ -1,0 +1,1 @@
+Vanilla-v2 is the same as vanilla-v1, but the perception is done on all states, not just the color state.

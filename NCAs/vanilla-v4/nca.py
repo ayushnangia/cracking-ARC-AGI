@@ -1,5 +1,4 @@
-# This code is for GPU parallelisation. It works on apple silicon. Minor modifications are needed for other platforms.
-# For kaggle or google, you can use the g-prl-nca.py file.
+# Plain and single-threaded vanilla NCA. No parallelisation.
 
 import os
 import json
@@ -10,16 +9,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from typing import List, Dict, Any, Tuple
-from multiprocessing import Pool, cpu_count
-from tqdm import tqdm
 
 import datetime
 timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M%S") # Format: YYMMDD_HHMMSS
 
 # --- 1. SETTINGS & PATHS ---
 # Uncomment for local mac silicon run
-ARC_DATA_DIR = "../dataset/script-tests/grouped-tasks"
-OUTPUT_DIR = os.path.join("./runs", f"test_{timestamp}")
+ARC_DATA_DIR = "../../dataset/script-tests/grouped-tasks"
+OUTPUT_DIR = os.path.join("../runs", f"test_{timestamp}")
 
 # Uncomment for Kaggle
 # ARC_DATA_DIR = "/kaggle/input/arc-prize-2024"
@@ -43,7 +40,7 @@ os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 HPARAMS: Dict[str, Any] = {
     "grid_size": 30,
     "n_classes": 11,
-    "in_channels": 20, # 11 for color one-hot, 5 for hidden state
+    "in_channels": 20, # 11 for color one-hot, 9 for hidden state
     "hidden_channels": 9,
     "nn_hidden_dim": 128,
     "lr": 1e-3,
@@ -54,8 +51,6 @@ HPARAMS: Dict[str, Any] = {
     "train_steps_max": 30
 }
 
-N_WORKERS = 5
-
 # --- 2. The CellularNN Model ---
 
 class CellularNN(nn.Module):
@@ -65,7 +60,7 @@ class CellularNN(nn.Module):
         self.in_channels = in_channels
         
         # For a 3x3 neighborhood, there are 8 neighbors.
-        perception_channels = self.in_channels + (8 * self.n_classes) 
+        perception_channels = self.in_channels + (8 * self.in_channels) 
         
         self.fc1 = nn.Conv2d(perception_channels, nn_hidden_dim, 1)
         self.fc2 = nn.Conv2d(nn_hidden_dim, self.in_channels, 1)
@@ -83,14 +78,8 @@ class CellularNN(nn.Module):
         Alternative implementation to get neighbor states using padding and slicing,
         aiming to avoid F.unfold and its potential MPS fallback for 'col2im'.
         """
-        # We only care about the one-hot color state of neighbors
-        color_state = x[:, :self.n_classes]  # Shape: [B, n_classes, H, W]
-        B, C_state, H, W = color_state.shape
-
-        # Pad the color_state to handle boundaries easily.
-        # Padding is (pad_left, pad_right, pad_top, pad_bottom) for the last two dims.
-        padded_color_state = F.pad(color_state, (1, 1, 1, 1), mode='constant', value=0.0)
-        # padded_color_state shape: [B, n_classes, H+2, W+2]
+        padded_state = F.pad(x, (1, 1, 1, 1), mode='constant', value=0.0)
+        B, C_state, H, W = x.shape
 
         neighbor_tensors = []
 
@@ -105,7 +94,7 @@ class CellularNN(nn.Module):
                 start_col = c_offset + 1
                 end_col = start_col + W
 
-                neighbor_slice = padded_color_state[:, :, start_row:end_row, start_col:end_col]
+                neighbor_slice = padded_state[:, :, start_row:end_row, start_col:end_col]
                 neighbor_tensors.append(neighbor_slice)
 
         all_neighbors = torch.cat(neighbor_tensors, dim=1)
@@ -192,12 +181,11 @@ def train_and_predict_for_task(
     train_pairs: List[Dict], 
     test_inputs: List[Dict], 
     device: torch.device, 
-    hparams: Dict[str, Any],
-    process_id: int = 0  # To distinguish logs if needed
-) -> Tuple[str, List[List[int]]]: # Return a tuple
+    hparams: Dict[str, Any]
+) -> List[List[int]]:
     """
     Initializes, trains, and uses an NCA model for a single task.
-    Returns a tuple of (task_id, list_of_predicted_grids).
+    Returns a list of predicted grids for the test inputs.
     """
     # 1. Model & Optimizer Initialization
     model = CellularNN(
@@ -207,7 +195,7 @@ def train_and_predict_for_task(
         model.parameters(), lr=hparams['lr'], weight_decay=hparams['weight_decay']
     )
 
-    # 2. Data Preparation
+    # 2. Data Preparation (No DataLoader)
     grid_args = (hparams['grid_size'], hparams['in_channels'], hparams['n_classes'])
     train_input_tensors = [
         torch.tensor(create_array_from_grid(p['input'], *grid_args)).permute(2, 0, 1) 
@@ -225,62 +213,46 @@ def train_and_predict_for_task(
         target_batch = torch.stack(train_target_tensors).to(device)
 
         optimizer.zero_grad()
+
+        # NCA update steps
         state = inp_batch
         num_steps = np.random.randint(hparams['train_steps_min'], hparams['train_steps_max'] + 1)
         for _ in range(num_steps):
             state = model(state)
         
-        target_labels = target_batch.argmax(dim=1)
-        loss = F.cross_entropy(state[:, :hparams['n_classes']], target_labels)
+        # Loss calculation: MSE on all channels, with target being one-hot encoded.
+        loss = F.mse_loss(state, target_batch)
+        
         loss.backward()
         optimizer.step()
 
-        # Logging is less clean in parallel, but can be useful for debugging
-        # if i % 200 == 0:
-        #     print(f"  [Worker {process_id}] Task {task_id}, Iter {i:04d}: Loss={loss.item():.4f}")
+        if i % 200 == 0:
+            print(f"  Task {task_id}, Iter {i:04d}: Loss={loss.item():.4f}")
             
     # 4. Save Final Checkpoint
     final_checkpoint_path = os.path.join(CHECKPOINT_DIR, f"{task_id}.pth")
     torch.save(model.state_dict(), final_checkpoint_path)
+    print(f"  Saved final model for task {task_id} to {final_checkpoint_path}")
 
     # 5. Prediction Phase
     model.eval()
     predicted_grids = []
     with torch.no_grad():
         for test_case in test_inputs:
-            inp_array = create_array_from_grid(test_case['input'], *grid_args)
+            test_input_grid = test_case['input']
+            inp_array = create_array_from_grid(test_input_grid, *grid_args)
             inp_tensor = torch.tensor(inp_array).permute(2, 0, 1).unsqueeze(0).to(device)
+            
             state = inp_tensor
             for _ in range(hparams['prediction_steps']):
                 state = model(state)
+
             grid_from_tensor = tensor_to_grid(state.squeeze(0), hparams['n_classes'])
             depadded_grid = depad_grid(grid_from_tensor)
-            final_output_grid = [[max(0, cell) for cell in row] for row in depadded_grid]
+            final_output_grid = [[max(0, cell) for cell in row] for row in depadded_grid] # Convert any remaining internal -1s to 0 (black)
             predicted_grids.append(final_output_grid)
 
-    return (task_id, predicted_grids)
-
-def worker_process(args):
-    """
-    A simple wrapper to unpack arguments for pool.starmap and call the main function.
-    """
-    task_id, train_pairs, test_inputs, device, hparams, process_id = args
-    # print(f"Worker {process_id} starting task {task_id}") # Uncomment for debug
-    
-    if not train_pairs:
-        # Handle tasks with no training pairs
-        predicted_grids = [[[0]] for _ in test_inputs]
-        return (task_id, predicted_grids)
-    else:
-        try:
-            return train_and_predict_for_task(
-                task_id, train_pairs, test_inputs, device, hparams, process_id
-            )
-        except Exception as e:
-            print(f"!!! ERROR processing task {task_id}: {e}")
-            # Return a default failure prediction
-            predicted_grids = [[[0]] for _ in test_inputs]
-            return (task_id, predicted_grids)
+    return predicted_grids
 
 # --- 5. Main Execution Block ---
 
@@ -290,7 +262,6 @@ if __name__ == "__main__":
     # Setup
     device = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
     print(f"Using device: {device}")
-    print(f"Using {N_WORKERS} parallel workers.")
 
     # Load data
     try:
@@ -298,41 +269,46 @@ if __name__ == "__main__":
             challenges = json.load(f)
     except FileNotFoundError:
         print(f"FATAL: Input JSON not found at {INPUT_JSON_FILE}")
+        print("Please check the `ARC_DATA_DIR` and `INPUT_JSON_FILE` variables.")
         exit()
     
-    # Prepare arguments for all tasks
-    task_args = []
+    submission = {}
+
+    # Main processing loop
     task_ids = list(challenges.keys())
+    print(f"Found {len(task_ids)} tasks in {INPUT_JSON_FILE}")
+
     for i, task_id in enumerate(task_ids):
         task_data = challenges[task_id]
+        print(f"\n--- Processing task {i+1}/{len(task_ids)}: {task_id} ---")
+
         train_pairs = task_data['train']
+        # The 'test' field in training files are pairs, but in test files are just inputs.
+        # We handle this by only looking at the 'input' key.
         test_inputs = task_data['test']
-        # Each task gets its arguments packed into a tuple
-        task_args.append((task_id, train_pairs, test_inputs, device, HPARAMS, i % N_WORKERS))
 
-    # Main parallel processing pool
-    submission = {}
-    
-    # The 'spawn' start method is often more compatible with CUDA
-    # You might not need this on macOS/Linux but it's good practice
-    # import multiprocessing
-    # multiprocessing.set_start_method('spawn', force=True)
+        if not train_pairs:
+            print(f"  Skipping task {task_id}: No training pairs.")
+            # Create default predictions for all test cases for this task
+            predicted_grids = [[[0]] for _ in test_inputs]
+        else:
+            # The magic happens here
+            predicted_grids = train_and_predict_for_task(
+                task_id, 
+                train_pairs, 
+                test_inputs, 
+                device, 
+                HPARAMS
+            )
 
-    with Pool(processes=N_WORKERS) as pool:
-        # Use tqdm to show a progress bar
-        results = list(tqdm(pool.imap_unordered(worker_process, task_args), total=len(task_args)))
-
-    # Process results and format submission
-    for task_id, predicted_grids in results:
+        # Format for submission.json
         formatted_predictions = []
         for grid in predicted_grids:
             formatted_predictions.append({
                 "attempt_1": grid,
-                "attempt_2": grid
+                "attempt_2": grid # Use the same prediction for both attempts
             })
         submission[task_id] = formatted_predictions
-        print(f"  Finished processing and collating results for task {task_id}")
-
 
     # Save final submission file
     with open(SUBMISSION_FILE, 'w') as f:
