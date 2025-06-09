@@ -20,6 +20,8 @@ from typing import List, Dict, Any, Tuple
 import datetime
 import multiprocessing as mp
 from tqdm import tqdm
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 # =================================================================================================================
 # | SECTION 1: WORKER CODE                                                                                        |
@@ -33,6 +35,50 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Dict, Any, Tuple
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap, BoundaryNorm
+
+# Matplotlib and ARC color setup for visualization
+ARC_COLORS = [
+    (0, 0, 0),        # 0: black
+    (0, 116/255, 217/255),  # 1: blue
+    (255/255, 65/255, 54/255),  # 2: red
+    (46/255, 204/255, 64/255),  # 3: green
+    (255/255, 220/255, 0/255),  # 4: yellow
+    (170/255, 170/255, 170/255),# 5: grey
+    (240/255, 22/255, 230/255), # 6: magenta/pink
+    (255/255, 133/255, 27/255), # 7: orange
+    (127/255, 219/255, 255/255),# 8: cyan
+    (135/255, 15/255, 35/255),  # 9: dark red (example for color 9)
+    (255/255, 255/255, 255/255) # 10: white (often used as background or for >9)
+]
+ARC_CMAP = ListedColormap([c for c in ARC_COLORS])
+ARC_BOUNDS = list(range(len(ARC_COLORS) + 1))
+ARC_NORM = BoundaryNorm(ARC_BOUNDS, ARC_CMAP.N)
+
+def save_grid_as_image(grid: List[List[int]], filepath: str, title: str = ""):
+    if not grid or not grid[0]:
+        print(f"Skipping saving empty grid for {filepath}")
+        return
+    try:
+        data = np.array(grid, dtype=np.int8)
+        fig, ax = plt.subplots(figsize=(max(1, len(grid[0])/2), max(1, len(grid)/2))) # Adjust size
+        ax.imshow(data, cmap=ARC_CMAP, norm=ARC_NORM, interpolation='nearest')
+        ax.set_xticks(np.arange(-.5, len(grid[0]), 1), minor=True)
+        ax.set_yticks(np.arange(-.5, len(grid), 1), minor=True)
+        ax.grid(which='minor', color='black', linestyle='-', linewidth=0.5)
+        ax.tick_params(which='minor', size=0)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        if title:
+            ax.set_title(title)
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        plt.savefig(filepath, bbox_inches='tight', pad_inches=0.1)
+        plt.close(fig)
+    except Exception as e:
+        print(f"Error saving grid to {filepath}: {e}")
 
 # 1. The CellularNN Model
 class CellularNN(nn.Module):
@@ -144,17 +190,32 @@ def train_and_predict_for_task(
 
     model.eval()
     predicted_grids = []
+    main_output_dir = hparams.get('OUTPUT_DIR', '.') # Get main output dir from hparams
+
     with torch.no_grad():
-        for test_case in test_inputs:
-            inp_array = create_array_from_grid(test_case['input'], *grid_args)
+        for test_idx, test_case in enumerate(test_inputs):
+            test_input_grid = test_case['input']
+            inp_array = create_array_from_grid(test_input_grid, *grid_args)
             inp_tensor = torch.tensor(inp_array).permute(2, 0, 1).unsqueeze(0).to(device)
+            
             state = inp_tensor
             for _ in range(hparams['prediction_steps']):
                 state = model(state)
+
             grid_from_tensor = tensor_to_grid(state.squeeze(0), hparams['n_classes'])
             depadded_grid = depad_grid(grid_from_tensor)
             final_output_grid = [[max(0, cell) for cell in row] for row in depadded_grid]
             predicted_grids.append(final_output_grid)
+
+            # --- Visualization ---
+            viz_path_base = os.path.join(main_output_dir, "visualizations", task_id, f"test_{test_idx}")
+            save_grid_as_image(test_input_grid, os.path.join(viz_path_base, "input.png"), title="Input")
+            save_grid_as_image(final_output_grid, os.path.join(viz_path_base, "prediction.png"), title="Prediction")
+            
+            if 'output' in test_case and test_case['output']:
+                ground_truth_grid = test_case['output']
+                save_grid_as_image(ground_truth_grid, os.path.join(viz_path_base, "ground_truth.png"), title="Ground Truth")
+            # --- End Visualization ---
 
     return (task_id, predicted_grids)
 
@@ -231,7 +292,8 @@ if __name__ == "__main__":
         "num_iterations": 400, 
         "prediction_steps": 30,
         "train_steps_min": 30, 
-        "train_steps_max": 30
+        "train_steps_max": 30,
+        "OUTPUT_DIR": OUTPUT_DIR # Pass the main output directory to workers
     }
 
     # --- DYNAMIC WORKER FILE CREATION ---
