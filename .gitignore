@@ -3,3 +3,4 @@ venv/
 NCAs/runs
 NCAs/archived/
 .cursor
+gpu_prl_nca.py
