@@ -209,9 +209,10 @@ if __name__ == "__main__":
     PLATFORM_NAME = "Local Mac/PC"
     ARC_DATA_DIR = "../../dataset/script-tests/grouped-tasks"
     INPUT_JSON_FILENAME = "challenges.json"
-    OUTPUT_DIR = os.path.join("./runs", f"grun_{datetime.datetime.now().strftime('%y%m%d_%H%M%S')}")
+    OUTPUT_DIR = os.path.join("../runs", f"grun_{datetime.datetime.now().strftime('%y%m%d_%H%M%S')}")
     WORKERS_PER_GPU = 2 # Used for MPS or if a single CUDA GPU is found locally
     LOCAL_WORKERS = 2   # Used for CPU or as the primary setting for MPS
+    VISUALISE = True   # Set to True to generate visualization.pdf at the end of execution
 
     # ------------------------------------------------------------------------------------
 
@@ -311,6 +312,21 @@ if __name__ == "__main__":
     SUBMISSION_FILE = os.path.join(OUTPUT_DIR, "submission.json")
     with open(SUBMISSION_FILE, 'w') as f:
         json.dump(submission, f)
+
+    if VISUALISE:
+        print("\nStarting visualization...")
+        try:
+            import subprocess
+            eval_script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "evaluate.py"))
+            dataset_path = os.path.abspath(ARC_DATA_DIR)
+            submission_path = os.path.abspath(SUBMISSION_FILE)
+            
+            cmd = [sys.executable, eval_script_path, "--submission_file", submission_path, "--dataset", dataset_path, "--visualize"]
+            print(f"Executing: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True)
+            print("Visualization script finished.")
+        except Exception as e:
+            print(f"Error during visualization: {e}")
 
     total_time = time.time() - script_start_time
     print("\n-----------------------------------------")

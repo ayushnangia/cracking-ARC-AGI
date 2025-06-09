@@ -1,6 +1,6 @@
 .DS_Store
 venv/
-NCAs/runs
-NCAs/archived/
+nca-code/runs
+nca-code/archived/
 .cursor
 gpu_prl_nca.py

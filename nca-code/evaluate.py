@@ -231,14 +231,16 @@ def evaluate_submission(
 
         # 12) Build and write markdown table
         header = ["task_id", "fraction_correct", "task_avg_pixel_acc", "per_test_pixel_acc"]
-        rows = [header]
+        f.write("| " + " | ".join(header) + " |\n")
+        f.write("|:--|:--|:--|:--|\n") # Markdown table header separator
+        rows_to_write = []
         for tid, info in sorted(per_task.items(), key=lambda kv: kv[1]["task_avg_pixel_acc"], reverse=True):
             frac = f"{info['fraction_correct']:.4f}"
             avg_pix = f"{info['task_avg_pixel_acc']:.4f}"
             per_list = ";".join(f"{acc:.4f}" for acc in info["per_test_pixel_acc"])
-            rows.append([tid, frac, avg_pix, per_list])
+            rows_to_write.append([tid, frac, avg_pix, per_list])
 
-        for row in rows[1:]:
+        for row in rows_to_write:
             f.write("| " + " | ".join(row) + " |\n")
 
     print(f"Evaluation complete.")
