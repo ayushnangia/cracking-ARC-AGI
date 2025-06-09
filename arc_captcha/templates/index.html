@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARC AGI Captcha - Human Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="floating-grid"></div>
+        <div class="floating-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+            <div class="shape shape-4"></div>
+            <div class="shape shape-5"></div>
+            <div class="shape shape-6"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero-section" id="hero-section">
+            <div class="hero-content">
+                <h1 class="main-title">
+                    <span class="title-arc">ARC</span>
+                    <span class="title-agi">AGI</span>
+                </h1>
+                
+                <!-- Main Captcha Widget -->
+                <div class="captcha-widget" id="captcha-widget">
+                    <div class="widget-glow"></div>
+                    <div class="widget-container">
+                        <input type="checkbox" id="human-checkbox" class="main-checkbox">
+                        <label for="human-checkbox" class="main-label">
+                            <span class="checkbox-text">I'm not a robot</span>
+                        </label>
+                        <div class="widget-logo">ARC</div>
+                    </div>
+                    <div class="widget-sparks">
+                        <div class="spark">⚡</div>
+                        <div class="spark">⚡</div>
+                        <div class="spark">⚡</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <main class="main-content">
+            <!-- Loading State -->
+            <div id="loading" class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>Loading challenge...</p>
+            </div>
+
+            <!-- Challenge Interface -->
+            <div id="challenge-container" class="challenge-container" style="display: none;">
+                
+                <!-- Progress Steps -->
+                <div class="progress-bar">
+                    <div class="progress-step active" id="step-1">
+                        <div class="step-number">1</div>
+                        <span>Study</span>
+                    </div>
+                    <div class="progress-step" id="step-2">
+                        <div class="step-number">2</div>
+                        <span>Practice</span>
+                    </div>
+                    <div class="progress-step" id="step-3">
+                        <div class="step-number">3</div>
+                        <span>Solve</span>
+                    </div>
+                </div>
+
+                <!-- Step 1: Study Pattern -->
+                <div id="study-section" class="step-section active">
+                    <div class="step-header">
+                        <h2>🧩 Study the Pattern</h2>
+                        <p>Look at this example to understand how the input transforms into the output</p>
+                    </div>
+                    
+                    <div class="example-showcase" id="current-example">
+                        <!-- Current example will be inserted here -->
+                    </div>
+                    
+                    <div class="study-controls">
+                        <button id="next-example-btn" class="btn btn-secondary">
+                            <span>👁️</span> Show Another Example
+                        </button>
+                        <button id="ready-practice-btn" class="btn btn-primary">
+                            <span>✨</span> I Think I Got It!
+                        </button>
+                    </div>
+                    
+                    <div id="pattern-hint" class="smart-hint" style="display: none;"></div>
+                </div>
+
+                <!-- Step 2: Practice Mode -->
+                <div id="practice-section" class="step-section" style="display: none;">
+                    <div class="step-header">
+                        <h2>🎯 Practice Mode</h2>
+                        <p>Try applying the pattern you learned. Don't worry, this is just practice!</p>
+                    </div>
+                    
+                    <div class="practice-area">
+                        <div class="challenge-layout">
+                            <div class="input-side">
+                                <h4>📥 Input</h4>
+                                <div id="practice-input-grid" class="grid"></div>
+                            </div>
+                            
+                            <div class="arrow-divider">
+                                <div class="arrow-icon">→</div>
+                                <div class="arrow-text">Apply Pattern</div>
+                            </div>
+                            
+                            <div class="output-side">
+                                <h4>📤 Your Output</h4>
+                                <div id="practice-output-grid" class="grid interactive"></div>
+                                <div class="live-feedback" id="practice-feedback"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="practice-controls">
+                        <button id="back-to-study-btn" class="btn btn-secondary">
+                            <span>←</span> Back to Study
+                        </button>
+                        <button id="clear-practice-btn" class="btn btn-secondary">
+                            <span>🧽</span> Clear
+                        </button>
+                        <button id="ready-solve-btn" class="btn btn-primary">
+                            <span>🚀</span> Ready to Solve!
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Final Challenge -->
+                <div id="solve-section" class="step-section" style="display: none;">
+                    <div class="step-header">
+                        <h2>🏆 Final Challenge</h2>
+                        <p>This is the real test. Apply the pattern to verify you're human!</p>
+                    </div>
+                    
+                    <div class="final-challenge">
+                        <div class="challenge-layout">
+                            <div class="input-side">
+                                <h4>📥 Input</h4>
+                                <div id="test-input-grid" class="grid"></div>
+                            </div>
+                            
+                            <div class="arrow-divider">
+                                <div class="arrow-icon">→</div>
+                                <div class="arrow-text">Final Answer</div>
+                            </div>
+                            
+                            <div class="output-side">
+                                <h4>📤 Your Answer</h4>
+                                <div id="test-output-grid" class="grid interactive"></div>
+                                <div class="live-feedback" id="solve-feedback"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="solve-controls">
+                        <button id="back-to-practice-btn" class="btn btn-secondary">
+                            <span>←</span> More Practice
+                        </button>
+                        <button id="clear-solve-btn" class="btn btn-secondary">
+                            <span>🧽</span> Clear
+                        </button>
+                        <button id="verify-final-btn" class="btn btn-primary">
+                            <span>✅</span> Verify I'm Human
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Color Palette (Repositioned) -->
+                <div class="color-palette-container" id="color-palette" style="display: none;">
+                    <div class="palette-header">
+                        <h4>🎨 Paint Colors</h4>
+                        <div class="palette-hint">Use number keys 0-9 for quick selection</div>
+                    </div>
+                    <div id="color-picker" class="color-picker"></div>
+                </div>
+
+                <!-- Difficulty Settings (Hidden) -->
+                <div class="settings-panel" style="display: none;">
+                    <select id="difficulty-select">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                    <button id="new-challenge-btn">🔄</button>
+                </div>
+
+                <!-- Feedback -->
+                <div id="feedback" class="feedback" style="display: none;"></div>
+            </div>
+
+            <!-- Success State -->
+            <div id="success-container" class="success-container" style="display: none;">
+                <div class="success-widget">
+                    <div class="success-checkmark">
+                        <div class="checkmark-circle">
+                            <div class="checkmark">✓</div>
+                        </div>
+                    </div>
+                    <h2>🎉 Human Verified!</h2>
+                    <p>Congratulations! You've successfully solved the pattern.</p>
+                    
+                    <div class="success-details">
+                        <div class="verification-info">
+                            <div class="info-row">
+                                <span class="info-label">🛡️ Status:</span>
+                                <span class="info-value verified">Human Verified</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">⏱️ Time:</span>
+                                <span class="info-value" id="solve-time">--</span>
+                            </div>
+                        </div>
+                        
+                        <div class="verification-token">
+                            <label>🔐 Verification Token:</label>
+                            <div class="token-container">
+                                <input type="text" id="verification-token" readonly>
+                                <button id="copy-token-btn" class="btn btn-copy">📋</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="success-actions">
+                        <button id="restart-btn" class="btn btn-primary">Try Another Puzzle</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DEATH PAGE - Bot Detected -->
+            <div id="death-container" class="death-container" style="display: none;">
+                <div class="death-bg">
+                    <div class="glitch-overlay"></div>
+                    <div class="death-content">
+                        <div class="skull-animation">
+                            <div class="skull">🤖</div>
+                            <div class="death-sparks">
+                                <div class="spark spark-1">⚡</div>
+                                <div class="spark spark-2">💥</div>
+                                <div class="spark spark-3">⚡</div>
+                                <div class="spark spark-4">💥</div>
+                            </div>
+                        </div>
+                        
+                        <div class="death-message">
+                            <h1 class="death-title glitch-text" data-text="YOU ARE A BOT">YOU ARE A BOT</h1>
+                            <div class="death-subtitle">ACCESS DENIED</div>
+                            <div class="failure-stats">
+                                <div class="failure-stat">
+                                    <span class="stat-label">FAILED ATTEMPTS:</span>
+                                    <span class="stat-value" id="failure-count">3/3</span>
+                                </div>
+                                <div class="failure-stat">
+                                    <span class="stat-label">BOT PROBABILITY:</span>
+                                    <span class="stat-value">99.9%</span>
+                                </div>
+                                <div class="failure-stat">
+                                    <span class="stat-label">HUMAN STATUS:</span>
+                                    <span class="stat-value denied">REVOKED</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="death-actions">
+                            <button id="try-again-btn" class="btn btn-death">Try Again (If You Dare)</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Matrix Rain Effect -->
+                    <div class="matrix-rain">
+                        <div class="matrix-column"></div>
+                        <div class="matrix-column"></div>
+                        <div class="matrix-column"></div>
+                        <div class="matrix-column"></div>
+                        <div class="matrix-column"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>
+                Powered by the Abstract Reasoning Corpus (ARC) dataset • 
+                <a href="/demo">View Demo</a> • 
+                <a href="https://github.com/fchollet/ARC-AGI" target="_blank">Learn More About ARC</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/captcha.js') }}"></script>
+</body>
+</html> 
