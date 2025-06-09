@@ -2,3 +2,4 @@
 venv/
 NCAs/runs
 NCAs/archived/
+.cursor
