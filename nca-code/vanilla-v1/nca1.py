@@ -11,22 +11,32 @@ import torch.optim as optim
 from typing import List, Dict, Any, Tuple
 
 import datetime
+import sys
+
 timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M%S") # Format: YYMMDD_HHMMSS
 
 # --- 1. SETTINGS & PATHS ---
 # Uncomment for local mac silicon run
 ARC_DATA_DIR = "../dataset/script-tests/grouped-tasks"
-OUTPUT_DIR = os.path.join("./runs", f"test_{timestamp}")
+OUTPUT_DIR = os.path.join("../runs", f"test_{timestamp}")
+
+# Add VISUALISE option for single-threaded NCAs
+VISUALISE = True # Set to True to generate visualization.pdf at the end of execution
+EVALUATE_SCRIPT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "evaluate.py"))
 
 # Uncomment for Kaggle
 # ARC_DATA_DIR = "/kaggle/input/arc-prize-2024"
 # OUTPUT_DIR = "/kaggle/working"
+# VISUALISE = True   # Set to True to generate visualization.pdf at the end of execution
+# EVALUATE_SCRIPT_PATH = "/kaggle/working/evaluate.py"
 
 # Uncomment for Google Colab run
 # from google.colab import drive
 # drive.mount('/content/drive')
 # ARC_DATA_DIR = "/content/drive/MyDrive/Cracking-ARC-AGI/dataset/script-tests/grouped-tasks"
 # OUTPUT_DIR = os.path.join("/content/drive/MyDrive/Cracking-ARC-AGI/NCAs", f"test_{timestamp}")
+# VISUALISE = True   # Set to True to generate visualization.pdf at the end of execution
+# EVALUATE_SCRIPT_PATH = "/content/drive/MyDrive/Cracking-ARC-AGI/evaluate.py"
 
 INPUT_JSON_FILE = os.path.join(ARC_DATA_DIR, "challenges.json")
 CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, "checkpoints")
@@ -322,6 +332,19 @@ if __name__ == "__main__":
     # Save final submission file
     with open(SUBMISSION_FILE, 'w') as f:
         json.dump(submission, f)
+
+    if VISUALISE:
+        print("\nStarting visualization...")
+        try:
+            dataset_path = os.path.abspath(ARC_DATA_DIR)
+            submission_path = os.path.abspath(SUBMISSION_FILE)
+            
+            cmd = [sys.executable, EVALUATE_SCRIPT_PATH, "--submission_file", submission_path, "--dataset", dataset_path, "--visualize"]
+            print(f"Executing: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True)
+            print("Visualization script finished.")
+        except Exception as e:
+            print(f"Error during visualization: {e}")
 
     script_end_time = time.time()
     total_time = script_end_time - script_start_time

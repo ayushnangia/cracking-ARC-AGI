@@ -193,6 +193,8 @@ if __name__ == "__main__":
     # OUTPUT_DIR = "/kaggle/working/"
     # WORKERS_PER_GPU = 5 # Rule: 5 workers per L4 GPU.
     # LOCAL_WORKERS = 20 # Fallback for CPU/MPS, Kaggle typically has many cores
+    # VISUALISE = True   # Set to True to generate visualization.pdf at the end of execution
+    # EVALUATE_SCRIPT_PATH = "/kaggle/working/evaluate.py" # Adjust if evaluate.py is in a dataset
 
     # # --- 2. GOOGLE COLAB CONFIG ---
     # PLATFORM_NAME = "Google Colab"
@@ -204,6 +206,8 @@ if __name__ == "__main__":
     # OUTPUT_DIR = os.path.join("/content/drive/MyDrive/Cracking-ARC-AGI/NCAs/runs", datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
     # WORKERS_PER_GPU = 5 # Same rule, but will likely only find 1 GPU.
     # LOCAL_WORKERS = 5   # Fallback for CPU
+    # VISUALISE = True   # Set to True to generate visualization.pdf at the end of execution
+    # EVALUATE_SCRIPT_PATH = "/content/drive/MyDrive/Cracking-ARC-AGI/evaluate.py"
 
     # --- 3. LOCAL MAC/PC CONFIG ---
     PLATFORM_NAME = "Local Mac/PC"
@@ -213,6 +217,7 @@ if __name__ == "__main__":
     WORKERS_PER_GPU = 2 # Used for MPS or if a single CUDA GPU is found locally
     LOCAL_WORKERS = 2   # Used for CPU or as the primary setting for MPS
     VISUALISE = True   # Set to True to generate visualization.pdf at the end of execution
+    EVALUATE_SCRIPT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "evaluate.py"))
 
     # ------------------------------------------------------------------------------------
 
@@ -316,12 +321,10 @@ if __name__ == "__main__":
     if VISUALISE:
         print("\nStarting visualization...")
         try:
-            import subprocess
-            eval_script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "evaluate.py"))
             dataset_path = os.path.abspath(ARC_DATA_DIR)
             submission_path = os.path.abspath(SUBMISSION_FILE)
             
-            cmd = [sys.executable, eval_script_path, "--submission_file", submission_path, "--dataset", dataset_path, "--visualize"]
+            cmd = [sys.executable, EVALUATE_SCRIPT_PATH, "--submission_file", submission_path, "--dataset", dataset_path, "--visualize"]
             print(f"Executing: {' '.join(cmd)}")
             subprocess.run(cmd, check=True)
             print("Visualization script finished.")

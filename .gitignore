@@ -4,3 +4,4 @@ nca-code/runs
 nca-code/archived/
 .cursor
 gpu_prl_nca.py
+.cursorignore
