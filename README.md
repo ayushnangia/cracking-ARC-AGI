@@ -2,7 +2,16 @@
 
 This repository explores the application of Neural Cellular Automata (NCAs) to the Abstract Reasoning Corpus (ARC-AGI) challenge. It includes various vanilla NCA implementations and scripts for training, prediction, and evaluation.
 
-For a detailed explanation of the NCA approach and experimental results, please see the [NCAs folder README](./NCAs/README.md).
+It turns out, surprisingly far. This repository benchmarks unmodified Neural Cellular Automata (NCAs) on all public tasks from the ARC-AGI-1 and ARC-AGI-2 datasets. The results show that even with no architectural modifications or attention mechanisms, fixed-step vanilla NCAs are competitive.
+
+| Dataset                  | Tasks | Almost Solved (>=95% pixel acc) | Full Solves |
+| ------------------------ | ----- | ------------------------------- | ----------- |
+| Public Train (ARC-AGI-1) | 400   | 52 (13%)                        | 21 (5.25%)  |
+| Public Eval (ARC-AGI-1)  | 400   | 46 (11%)                        | 9 (2.25%)   |
+| Public Train (ARC-AGI-2) | 1000  | 120 (12%)                       | 27 (2.7%)   |
+| Public Eval (ARC-AGI-2)  | 120   | 6 (5%)                          | 0           |
+
+*Note: These results are from a single run. Performance can vary slightly between runs.*
 
 ## Setup
 
@@ -15,7 +24,6 @@ Follow these steps to set up the project environment:
     ```
 
 2.  **Create and activate a Python virtual environment:**
-    It's highly recommended to use a virtual environment to manage dependencies.
     ```bash
     python3 -m venv venv
     source venv/bin/activate
@@ -23,87 +31,68 @@ Follow these steps to set up the project environment:
     (On Windows, use `venv\Scripts\activate`)
 
 3.  **Install dependencies:**
-    The required Python packages are listed in `requirements.txt`. Install them using:
     ```bash
     pip install -r requirements.txt
     ```
-    Alternatively, if you have `uv` installed and prefer to use it:
+
+## Running Experiments
+
+The core NCA models and training scripts are located in the `nca-code/` directory. The primary script for running experiments is `gpu_prl_nca5.py` (for the V5 model), which trains a separate NCA model for each task in parallel using multiprocessing.
+
+1.  **Navigate to the script's directory:**
     ```bash
-    uv pip install -r requirements.txt
-    ```
-
-## Running NCA Experiments
-
-The primary script for running NCA experiments is `NCAs/vanilla-v1/gpu_prl_nca.py`. This script trains a separate NCA model for each task found in the input JSON file and uses multiprocessing to parallelize the process across available CPU cores or GPUs (CUDA/MPS).
-
-1.  **Navigate to the script directory:**
-    ```bash
-    cd NCAs/vanilla-v1/
+    cd nca-code/vanilla-v5/
     ```
 
 2.  **Run the script:**
     ```bash
-    python3 gpu_prl_nca.py
+    python3 gpu_prl_nca5.py
     ```
 
 3.  **Inputs:**
     *   By default, the script uses `dataset/script-tests/grouped-tasks/challenges.json` as the input file containing the ARC tasks. You can modify the `ARC_DATA_DIR` and `INPUT_JSON_FILENAME` variables within the script if you wish to use a different dataset.
+    *   Set up the number of workers and GPUs to use based on your system
+    *   Set `VISUALISE` to `True` to generate a `visualization.pdf` at the end of execution
 
 4.  **Outputs:**
-    *   A new run-specific directory will be created under `NCAs/runs/` (e.g., `NCAs/runs/grun_YYMMDD_HHMMSS/`).
-    *   **Submission File:** `submission.json` containing the predictions will be saved in this run directory.
-    *   **Worker Script:** A temporary `temp_nca_worker.py` is created and used during the run in this directory.
-    *   **Visualizations (PNGs):** If you are using the version of `gpu_prl_nca.py` modified to include visualizations, PNG images for each test case (input, prediction, and ground truth if available) will be saved under `NCAs/runs/<run_name>/visualizations/<task_id>/<test_case_idx>/`.
+    *   A new run-specific directory is created under `nca-code/runs/`.
+    *   `submission.json`: The predictions for all tasks.
+    *   If `VISUALISE` is set to `True`
+        - `results.md`: Detailed performance metrics.
+        - `visualization.pdf`: A PDF showing the input, prediction, and ground truth for each test case.
 
-## Evaluating Results
+## Standalone Evaluation
 
-The `NCAs/evaluate.py` script can be used to compare a generated `submission.json` file against ground truth solutions. It calculates various metrics and can generate a `visualization.pdf` file.
+You can also run the evaluation script independently on an existing `submission.json` file.
 
-1.  **Ensure you are in the project root directory where the `venv` is.** The script uses paths relative to the project root.
-
-2.  **Run the evaluation script with command-line arguments:**
+1.  **Run the `evaluate.py` script:**
     ```bash
-    python3 NCAs/evaluate.py \
-        --submission_file NCAs/runs/<run_name>/submission.json \
-        --challenges_file dataset/script-tests/grouped-tasks/challenges.json \
-        --solutions_file dataset/script-tests/grouped-tasks/solutions.json \
-        --output_dir NCAs/runs/<run_name>/ \
+    python3 nca-code/evaluate.py \
+        --submission_file nca-code/runs/<run_name>/submission.json \
+        --dataset dataset/ARC-1/grouped-tasks/training/ \
         --visualize
     ```
-    Replace `<run_name>` with the actual directory name of your experiment run (e.g., `grun_250609_070008`).
 
-3.  **Arguments:**
-    *   `--submission_file`: Path to the `submission.json` generated by the NCA script. (Required)
-    *   `--challenges_file`: Path to the challenges JSON file used for the submission. (Required)
-    *   `--solutions_file`: Path to the corresponding solutions JSON file. (Required)
-    *   `--output_dir`: Directory where `results.csv` and `visualization.pdf` will be saved. This is typically the same as the run directory. (Required)
-    *   `--visualize`: If specified, a `visualization.pdf` will be generated. (Optional)
+2.  **Arguments:**
+    *   `--submission_file`: Path to the `submission.json` to evaluate.
+    *   `--dataset`: Path to the corresponding dataset directory (must contain `challenges.json` and `solutions.json`).
+    *   `--visualize`: Generates the `visualization.pdf`.
 
-4.  **Outputs (saved in the specified `--output_dir`):**
-    *   `results.csv`: A CSV file with detailed performance metrics per task (fraction correct, pixel accuracy).
-    *   `visualization.pdf`: (If `--visualize` is used) A PDF file showing the input, predicted attempts, and ground truth for each test case, sorted by performance.
+## Model Comparison
 
-## NCA Model Version Comparison
+The NCA implementations have evolved across different versions (v1 to v5). The core `CellularNN` model within each version's script (`gpu_prl_nca*.py`) differs primarily in perception, normalization, and loss function.
 
-The NCA implementations have evolved across different versions (v1 to v5), primarily in their perception mechanisms, use of Layer Normalization, and loss functions. The `gpu_prl_nca.py` script structure within each version (which handles parallel execution) remains largely consistent. Here's a summary of the key differences in the core `CellularNN` model within these versions, based on their respective `gpu_prl_nca.py` files:
-
-| Feature                 | `vanilla-v1`                                     | `vanilla-v2`                                       | `vanilla-v3`                                                                 | `vanilla-v4`                                     | `vanilla-v5`                                     |
-| :---------------------- | :----------------------------------------------- | :------------------------------------------------- | :--------------------------------------------------------------------------- | :----------------------------------------------- | :----------------------------------------------- |
-| **Primary Script**      | `gpu_prl_nca.py` (multiprocessing worker)        | `gpu_prl_nca.py` (multiprocessing worker)          | `gpu_prl_nca.py` (multiprocessing worker)                                    | `gpu_prl_nca.py` (multiprocessing worker)        | `gpu_prl_nca.py` (multiprocessing worker)        |
-| **Neighbor Perception** | Color channels only                              | All channels (color + hidden)                      | All channels (color + hidden)                                                | All channels (color + hidden)                      | All channels (color + hidden)                      |
-| `perception_channels`   | `self.in_channels + (8 * self.n_classes)`        | `self.in_channels + (8 * self.in_channels)`      | `self.in_channels + (8 * self.in_channels)`                                | `self.in_channels + (8 * self.in_channels)`      | `self.in_channels + (8 * self.in_channels)`      |
-| **Layer Normalization** | Present                                          | Present                                            | Present                                                                      | Present                                          | **Absent**                                       |
-| **Loss Function**       | Cross-Entropy on color channels                  | Cross-Entropy on color channels                    | **Composite:**<br/>- Cross-Entropy (color ch.)<br/>- MSE (hidden ch.)          | MSE on all channels (color + hidden)             | MSE on all channels (color + hidden)             |
-| `create_array_from_grid` (Target for Loss) | One-hot color, zero hidden | One-hot color, zero hidden | One-hot color, zero hidden | One-hot color, zero hidden | One-hot color, zero hidden |
+| Feature                 | `vanilla-v1` (`gpu_prl_nca1.py`)     | `vanilla-v2`                             | `vanilla-v3`                                                                 | `vanilla-v4`                             | `vanilla-v5` (`gpu_prl_nca5.py`)     |
+| :---------------------- | :----------------------------------- | :--------------------------------------- | :--------------------------------------------------------------------------- | :--------------------------------------- | :----------------------------------- |
+| **Neighbor Perception** | Color channels only                  | All channels (color + hidden)            | All channels (color + hidden)                                                | All channels (color + hidden)            | All channels (color + hidden)        |
+| **Layer Normalization** | Present                              | Present                                  | Present                                                                      | Present                                  | **Absent**                           |
+| **Loss Function**       | Cross-Entropy on color channels      | Cross-Entropy on color channels          | **Composite:**<br/>- Cross-Entropy (color)<br/>- MSE (hidden)                  | MSE on all channels (color + hidden)     | MSE on all channels (color + hidden) |
 
 **Summary of Evolution:**
+*   **v1:** Basic NCA where neighbors only see color state.
+*   **v2:** Perception is enhanced to include all channels (hidden states).
+*   **v3:** A composite loss was introduced to guide both color and hidden state learning.
+*   **v4:** Simplified the loss to a single MSE term across all channels.
+*   **v5:** Built on v4 by removing Layer Normalization.
 
-*   **v1:** Started with a basic NCA where neighbors only communicate their color state. Loss is based on correctly predicting the target colors.
-*   **v2:** Enhanced neighbor perception to include all channels (colors and hidden/communication states). This allows richer information exchange between cells. Loss function remained focused on color prediction.
-*   **v3:** Introduced a more complex loss function. While still predicting colors (Cross-Entropy), it added an MSE loss component to also guide the learning of the hidden/communication channels, presumably to encourage them to learn useful internal representations that match the (zeroed) hidden channels of the target.
-*   **v4:** Simplified the loss to a single MSE term across all channels (both color and hidden). This directly tries to make the NCA's full state match the target's full state (one-hot colors, zeroed hidden channels).
-*   **v5:** Built upon `v4` (MSE loss on all channels and full neighbor perception) by **removing Layer Normalization**. The `about.md` for v5 suggests this change was made because MSE loss was being applied to all channels.
-
-## Further Details
-
-The code for the core NCA model variations (`vanilla-v1` through `vanilla-v5`) can be found in their respective subdirectories under `NCAs/`. The original `vanilla-v1` folder contains the version that has been most actively developed in this context.
+The code for each version can be found in `nca-code/vanilla-v*/`.

@@ -204,7 +204,7 @@ if __name__ == "__main__":
     # drive.mount('/content/drive')
     # ARC_DATA_DIR = "/content/drive/MyDrive/Cracking-ARC-AGI/dataset/script-tests/grouped-tasks-4"
     # INPUT_JSON_FILENAME = "challenges.json"
-    # OUTPUT_DIR = os.path.join("/content/drive/MyDrive/Cracking-ARC-AGI/NCAs/runs", datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
+    # OUTPUT_DIR = os.path.join("/content/drive/MyDrive/Cracking-ARC-AGI/nca-code/runs", datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
     # WORKERS_PER_GPU = 5 # Same rule, but will likely only find 1 GPU.
     # LOCAL_WORKERS = 5   # Fallback for CPU
     # VISUALISE = True   # Set to True to generate visualization.pdf at the end of execution

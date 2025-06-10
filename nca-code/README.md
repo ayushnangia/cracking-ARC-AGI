@@ -36,3 +36,5 @@ As of now, I am aware of 3 teams that have been independently working on ARC-AGI
 ## Details
 Check the results folder for a full breakdown  
 Don't forget to check the visualisations folder too!
+
+[TODO: Add more details about my NCA implementation]
