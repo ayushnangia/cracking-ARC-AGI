@@ -2,16 +2,7 @@
 
 This repository explores the application of Neural Cellular Automata (NCAs) to the Abstract Reasoning Corpus (ARC-AGI) challenge. It includes various vanilla NCA implementations and scripts for training, prediction, and evaluation.
 
-It turns out, surprisingly far. This repository benchmarks unmodified Neural Cellular Automata (NCAs) on all public tasks from the ARC-AGI-1 and ARC-AGI-2 datasets. The results show that even with no architectural modifications or attention mechanisms, fixed-step vanilla NCAs are competitive.
-
-| Dataset                  | Tasks | Almost Solved (>=95% pixel acc) | Full Solves |
-| ------------------------ | ----- | ------------------------------- | ----------- |
-| Public Train (ARC-AGI-1) | 400   | 52 (13%)                        | 21 (5.25%)  |
-| Public Eval (ARC-AGI-1)  | 400   | 46 (11%)                        | 9 (2.25%)   |
-| Public Train (ARC-AGI-2) | 1000  | 120 (12%)                       | 27 (2.7%)   |
-| Public Eval (ARC-AGI-2)  | 120   | 6 (5%)                          | 0           |
-
-*Note: These results are from a single run. Performance can vary slightly between runs.*
+## Conten
 
 ## Setup
 
@@ -82,7 +73,7 @@ You can also run the evaluation script independently on an existing `submission.
 
 The NCA implementations have evolved across different versions (v1 to v5). The core `CellularNN` model within each version's script (`gpu_prl_nca*.py`) differs primarily in perception, normalization, and loss function.
 
-| Feature                 | `vanilla-v1` (`gpu_prl_nca1.py`)     | `vanilla-v2`                             | `vanilla-v3`                                                                 | `vanilla-v4`                             | `vanilla-v5` (`gpu_prl_nca5.py`)     |
+| Feature                 | `vanilla-v1`     | `vanilla-v2`                             | `vanilla-v3`                                                                 | `vanilla-v4`                             | `vanilla-v5`     |
 | :---------------------- | :----------------------------------- | :--------------------------------------- | :--------------------------------------------------------------------------- | :--------------------------------------- | :----------------------------------- |
 | **Neighbor Perception** | Color channels only                  | All channels (color + hidden)            | All channels (color + hidden)                                                | All channels (color + hidden)            | All channels (color + hidden)        |
 | **Layer Normalization** | Present                              | Present                                  | Present                                                                      | Present                                  | **Absent**                           |
