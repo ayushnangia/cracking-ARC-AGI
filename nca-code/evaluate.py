@@ -13,6 +13,59 @@ import numpy as np
 # from google.colab import drive
 # drive.mount('/content/drive')
 
+# Helper for padding grids
+def _pad_grid(grid, target_h, target_w, pad_value=-1):
+    """Pads a grid to target dimensions with a specified pad_value."""
+    padded = [[pad_value] * target_w for _ in range(target_h)]
+    # Ensure grid is not empty and has inner lists before iterating
+    if grid and grid[0] and isinstance(grid[0], list):
+        for r_idx in range(len(grid)):
+            for c_idx in range(len(grid[0])):
+                # Copy existing values to the padded grid
+                padded[r_idx][c_idx] = grid[r_idx][c_idx]
+    return padded
+
+def calculate_union_accuracy(pred_grid, true_grid, pad_value=-1):
+    """
+    Calculates pixel accuracy between two grids based on their union.
+    Cells present in one grid but not the other (within the union bounding box)
+    are treated as mismatches against the pad_value.
+    Returns (matched_pixels, total_union_pixels).
+    """
+    true_h = len(true_grid)
+    true_w = len(true_grid[0]) if true_h > 0 else 0
+    pred_h = len(pred_grid)
+    pred_w = len(pred_grid[0]) if pred_h > 0 else 0
+
+    common_h = max(true_h, pred_h)
+    common_w = max(true_w, pred_w)
+
+    padded_true = _pad_grid(true_grid, common_h, common_w, pad_value)
+    padded_pred = _pad_grid(pred_grid, common_h, common_w, pad_value)
+
+    matched_pixels = 0
+    total_union_pixels = 0
+
+    # Iterate over the bounding box of the union
+    for r in range(common_h):
+        for c in range(common_w):
+            # Check if the cell (r, c) exists in the original prediction or ground truth grid
+            in_pred_orig = (r < pred_h and c < pred_w)
+            in_true_orig = (r < true_h and c < true_w)
+
+            if in_pred_orig or in_true_orig:
+                total_union_pixels += 1 # This cell is part of the union
+
+                val_pred = padded_pred[r][c]
+                val_true = padded_true[r][c]
+
+                # Only count as a match if their values are identical at this position
+                # (This implicitly handles cases where one is padding and the other is not - they won't match)
+                if val_pred == val_true:
+                    matched_pixels += 1
+
+    return matched_pixels, total_union_pixels
+
 def evaluate_submission(
     submission_dict: dict,
     solutions_dict: dict,
@@ -92,9 +145,12 @@ def evaluate_submission(
     norm = BoundaryNorm(bounds, cmap.N)
 
     # Prepare PDF if visualization requested
+    pdf = None
     if visualize:
         pdf_path = os.path.join(output_dir_path, "visualization.pdf")
         pdf = PdfPages(pdf_path)
+        print("Please wait visualising...")
+        print("This might take upto 2 minutes if there are a large number of tasks.")
 
     # 3) Aggregators for overall pixel counts
     total_matched_pixels = 0
@@ -149,54 +205,28 @@ def evaluate_submission(
             if exact1 or exact2:
                 num_exact_correct += 1
 
-            # For pixel accuracy, compute matches for both attempts and take the larger
-            # 6) Compute dimensions
-            true_h = len(true)
-            true_w = len(true[0]) if true_h > 0 else 0
-            p1_h = len(pred1)
-            p1_w = len(pred1[0]) if p1_h > 0 else 0
-            p2_h = len(pred2)
-            p2_w = len(pred2[0]) if p2_h > 0 else 0
+            # NEW: Compute pixel accuracy using the union logic
+            matches1, total_cells1 = calculate_union_accuracy(pred1, true)
+            matches2, total_cells2 = calculate_union_accuracy(pred2, true)
 
-            common_h = max(true_h, p1_h, p2_h)
-            common_w = max(true_w, p1_w, p2_w)
+            pixel_acc1 = matches1 / total_cells1 if total_cells1 > 0 else 0.0
+            pixel_acc2 = matches2 / total_cells2 if total_cells2 > 0 else 0.0
 
-            # 7) Padding function
-            def pad_grid(grid, target_h, target_w):
-                padded = [[-1] * target_w for _ in range(target_h)]
-                for i in range(len(grid)):
-                    for j in range(len(grid[0])):
-                        padded[i][j] = grid[i][j]
-                return padded
+            # Take the higher of the two accuracies for this test case
+            best_pixel_acc_for_test = max(pixel_acc1, pixel_acc2)
+            per_test_pixel_acc.append(best_pixel_acc_for_test)
 
-            # Pad all grids to common shape
-            true_p = pad_grid(true, common_h, common_w)
-            p1_p = pad_grid(pred1, common_h, common_w)
-            p2_p = pad_grid(pred2, common_h, common_w)
-
-            # Count matched pixels only over the area of the true output (true_h x true_w)
-            def count_matches(padded_pred, true_grid, true_h, true_w):
-                matches = 0
-                for i in range(true_h):
-                    for j in range(true_w):
-                        if padded_pred[i][j] == true_grid[i][j]:
-                            matches += 1
-                return matches
-
-            matches1 = count_matches(p1_p, true, true_h, true_w)
-            matches2 = count_matches(p2_p, true, true_h, true_w)
-            best_matches = max(matches1, matches2)
-            total_cells = true_h * true_w
-
-            pixel_acc = best_matches / total_cells if total_cells > 0 else 0.0
-            per_test_pixel_acc.append(pixel_acc)
-
-            # Aggregate for overall totals
-            total_matched_pixels += best_matches
-            total_pixels_overall += total_cells
+            # Accumulate best matches and their corresponding total cells for overall accuracy
+            if pixel_acc1 >= pixel_acc2:
+                total_matched_pixels += matches1
+                total_pixels_overall += total_cells1
+            else:
+                total_matched_pixels += matches2
+                total_pixels_overall += total_cells2
 
         # 9) Summarize per-task
         fraction_correct = num_exact_correct / num_tests if num_tests > 0 else 0.0
+        # per_test_pixel_acc already contains the best union accuracy for each test
         task_avg_pix = sum(per_test_pixel_acc) / len(per_test_pixel_acc) if per_test_pixel_acc else 0.0
 
         per_task[task_id] = {
@@ -206,59 +236,15 @@ def evaluate_submission(
         }
 
     # Close PDF if opened
-    if visualize:
-        pdf.close()
-
-    # 10) Compute overall stats
-    num_total_tasks_in_both = len(common_task_ids)
-    fully_correct_ids = [
-        tid for tid, info in per_task.items() if info["fraction_correct"] == 1.0
-    ]
-    num_fully_correct_tasks = len(fully_correct_ids)
-    overall_pixel_accuracy = (
-        total_matched_pixels / total_pixels_overall if total_pixels_overall > 0 else 0.0
-    )
-
-    # 11) Write summary to results.md
-    results_file_path = os.path.join(output_dir_path, "results.md")
-    with open(results_file_path, "w") as f:
-        f.write(f"**Total tasks in both files:** {num_total_tasks_in_both}\n")
-        f.write(f"**Extra in submission (not in solutions):** {mismatched_submission_ids}\n")
-        f.write(f"**Extra in solutions (not in submission):** {mismatched_solution_ids}\n")
-        f.write(f"**Number of fully-correct tasks:** {num_fully_correct_tasks}\n")
-        f.write(f"**List of fully-correct IDs:** {fully_correct_ids}\n")
-        f.write(f"**Overall pixel accuracy (all tasks):** {overall_pixel_accuracy:.4f}\n\n")
-
-        # 12) Build and write markdown table
-        header = ["task_id", "fraction_correct", "task_avg_pixel_acc", "per_test_pixel_acc"]
-        f.write("| " + " | ".join(header) + " |\n")
-        f.write("|:--|:--|:--|:--|\n") # Markdown table header separator
-        rows_to_write = []
-        for tid, info in sorted(per_task.items(), key=lambda kv: kv[1]["task_avg_pixel_acc"], reverse=True):
-            frac = f"{info['fraction_correct']:.4f}"
-            avg_pix = f"{info['task_avg_pixel_acc']:.4f}"
-            per_list = ";".join(f"{acc:.4f}" for acc in info["per_test_pixel_acc"])
-            rows_to_write.append([tid, frac, avg_pix, per_list])
-
-        for row in rows_to_write:
-            f.write("| " + " | ".join(row) + " |\n")
-
-    print(f"Evaluation complete.")
-    print(f"Evaluation results saved to: {os.path.join(output_dir_path, 'results.md')}")
-
-    if visualize:
-        print("\nPlease wait visualising...")
-        print("This might take upto 2 minutes if there are a large number of tasks.")
-        # pdf_path = os.path.join(OUTPUT_DIR, "visualization.pdf") # This was re-defined, already defined above correctly
-        # pdf = PdfPages(pdf_path) # This would re-open the pdf, already opened if visualize=True
-
-        # Sort task IDs by descending task_avg_pixel_acc
+    if visualize and pdf is not None: # Ensure pdf was actually created and is not None
+        # Sort task IDs by descending task_avg_pixel_acc for visualization
         sorted_task_ids = sorted(
             per_task.keys(),
             key=lambda tid: per_task[tid]["task_avg_pixel_acc"],
             reverse=True
         )
 
+        # Loop through sorted tasks to generate visualization pages
         for task_id in sorted_task_ids:
             # (a) Extract ground‐truths & preds
             sol_list = solutions_dict[task_id]
@@ -290,49 +276,45 @@ def evaluate_submission(
                 pred1      = pred_entry.get("attempt_1", [])
                 pred2      = pred_entry.get("attempt_2", [])
 
+                # Re-calculate pixel accuracies for display in titles
+                # This is a slight redundancy, but keeps the plotting loop self-contained
+                matches1, total_cells1 = calculate_union_accuracy(pred1, true)
+                matches2, total_cells2 = calculate_union_accuracy(pred2, true)
+                pixel_acc1 = matches1 / total_cells1 if total_cells1 > 0 else 0.0
+                pixel_acc2 = matches2 / total_cells2 if total_cells2 > 0 else 0.0
+
                 true_h = len(true)
                 true_w = len(true[0]) if true_h > 0 else 0
-                p1_h   = len(pred1)
-                p1_w   = len(pred1[0]) if p1_h > 0 else 0
-                p2_h   = len(pred2)
-                p2_w   = len(pred2[0]) if p2_h > 0 else 0
+                p1_h = len(pred1)
+                p1_w = len(pred1[0]) if p1_h > 0 else 0
+                p2_h = len(pred2)
+                p2_w = len(pred2[0]) if p2_h > 0 else 0
 
-                common_h = max(true_h, p1_h, p2_h)
-                common_w = max(true_w, p1_w, p2_w)
+                # Determine common bounding box for plotting all 4 grids (input, pred1, pred2, true)
+                inp_h, inp_w = (0,0)
+                if idx < len(test_inputs) and test_inputs[idx] is not None:
+                    inp_h = len(test_inputs[idx])
+                    inp_w = len(test_inputs[idx][0]) if inp_h > 0 else 0
 
-                def pad_grid(grid, target_h, target_w):
-                    padded = [[-1] * target_w for _ in range(target_h)]
-                    for i in range(len(grid)):
-                        for j in range(len(grid[0])):
-                            padded[i][j] = grid[i][j]
-                    return padded
+                common_h_plot = max(true_h, p1_h, p2_h, inp_h)
+                common_w_plot = max(true_w, p1_w, p2_w, inp_w)
 
-                true_p = pad_grid(true, common_h, common_w)
-                p1_p   = pad_grid(pred1, common_h, common_w)
-                p2_p   = pad_grid(pred2, common_h, common_w)
+                true_p = _pad_grid(true, common_h_plot, common_w_plot)
+                p1_p = _pad_grid(pred1, common_h_plot, common_w_plot)
+                p2_p = _pad_grid(pred2, common_h_plot, common_w_plot)
 
-                # Pad input
-                if idx < len(test_inputs):
-                    input_grid = test_inputs[idx]
-                    if input_grid is not None:
-                        inp_h = len(input_grid)
-                        inp_w = len(input_grid[0]) if inp_h > 0 else 0
-                        inp_common_h = max(inp_h, common_h)
-                        inp_common_w = max(inp_w, common_w)
-                        inp_p = pad_grid(input_grid, inp_common_h, inp_common_w)
-                    else:
-                        inp_common_h = common_h
-                        inp_common_w = common_w
-                        inp_p = [[-1] * inp_common_w for _ in range(inp_common_h)]
-                else:
-                    inp_common_h = common_h
-                    inp_common_w = common_w
-                    inp_p = [[-1] * inp_common_w for _ in range(inp_common_h)]
+                input_grid_to_plot = [[-1] * common_w_plot for _ in range(common_h_plot)] # Default to empty padded
+                if idx < len(test_inputs) and test_inputs[idx] is not None:
+                    input_grid_to_plot = _pad_grid(test_inputs[idx], common_h_plot, common_w_plot)
 
-                # Plot exactly as before
                 fig, axes = plt.subplots(2, 2, figsize=(6, 6))
-                titles = ["Input", "Attempt 1", "Attempt 2", "Ground Truth"]
-                grids  = [inp_p, p1_p, p2_p, true_p]
+                titles = [
+                    "Input",
+                    f"Attempt 1 (Acc: {pixel_acc1:.2%})",
+                    f"Attempt 2 (Acc: {pixel_acc2:.2%})",
+                    "Ground Truth"
+                ]
+                grids  = [input_grid_to_plot, p1_p, p2_p, true_p]
                 for ax, title, grid_to_plot in zip(axes.flatten(), titles, grids):
                     if not grid_to_plot or not grid_to_plot[0]:
                         ax.set_title(title)
@@ -360,9 +342,55 @@ def evaluate_submission(
                 plt.tight_layout(rect=[0, 0, 1, 0.95])
                 pdf.savefig(fig)
                 plt.close(fig)
+        pdf.close() # Close PDF after the entire visualization loop
 
-        # Finally, close the PDF
-        pdf.close()
+    # 10) Compute overall stats
+    num_total_tasks_in_both = len(common_task_ids)
+    fully_correct_ids = [
+        tid for tid, info in per_task.items() if info["fraction_correct"] == 1.0
+    ]
+    num_fully_correct_tasks = len(fully_correct_ids)
+    overall_pixel_accuracy = (
+        total_matched_pixels / total_pixels_overall if total_pixels_overall > 0 else 0.0
+    )
+
+    # 11) Write summary to results.md
+    results_file_path = os.path.join(output_dir_path, "results.md")
+    with open(results_file_path, "w") as f:
+        f.write(f"# ARC-AGI Evaluation Results\n\n") # Enhanced header
+        f.write(f"**Total tasks evaluated:** {num_total_tasks_in_both}\n")
+        if mismatched_submission_ids:
+            f.write(f"**Tasks in submission but not in solutions:** {', '.join(mismatched_submission_ids)}\n")
+        if mismatched_solution_ids:
+            f.write(f"**Tasks in solutions but not in submission:** {', '.join(mismatched_solution_ids)}\n")
+        f.write(f"**Number of fully-correct tasks (100% exact match):** {num_fully_correct_tasks}\n")
+        if fully_correct_ids:
+            f.write(f"**List of fully-correct task IDs:** {', '.join(fully_correct_ids)}\n")
+        f.write(f"**Overall Union Pixel Accuracy (across all test cases):** {overall_pixel_accuracy:.4f}\n\n")
+
+        f.write("## Per-Task Details\n\n") # New section header
+        # 12) Build and write markdown table
+        header = ["Task ID", "Fraction Correct (Exact)", "Avg. Union Pixel Acc.", "Individual Test Accuracies"] # Improved headers
+        f.write("| " + " | ".join(header) + " |\n")
+        f.write("|:---|:---------------------|:--------------------|:-------------------------|\n") # Markdown table header separator
+        rows_to_write = []
+        # Sort by fraction_correct first, then by task_avg_pixel_acc
+        sorted_task_items = sorted(
+            per_task.items(),
+            key=lambda kv: (kv[1]["fraction_correct"], kv[1]["task_avg_pixel_acc"]),
+            reverse=True
+        )
+        for tid, info in sorted_task_items:
+            frac = f"{info['fraction_correct']:.4f}"
+            avg_pix = f"{info['task_avg_pixel_acc']:.4f}"
+            per_list = "; ".join(f"{acc:.4f}" for acc in info["per_test_pixel_acc"]) # Use "; " for readability
+            rows_to_write.append([tid, frac, avg_pix, per_list])
+
+        for row in rows_to_write:
+            f.write("| " + " | ".join(row) + " |\n")
+
+    print(f"\nEvaluation complete.")
+    print(f"Evaluation results saved to: {os.path.join(output_dir_path, 'results.md')}")
 
     # 14) Return dictionary of results
     return {
@@ -396,8 +424,6 @@ if __name__ == "__main__":
     print(f"Loading submission from: {args.submission_file}")
     print(f"Loading dataset from: {args.dataset}")
     print(f"Output directory set to: {output_dir_path}")
-
-    print("\nPlease wait evaluating...")
 
     try:
         with open(args.submission_file) as f:
