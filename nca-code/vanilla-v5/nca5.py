@@ -16,7 +16,7 @@ timestamp = datetime.datetime.now().strftime("%y%m%d_%H%M%S") # Format: YYMMDD_H
 
 # --- 1. SETTINGS & PATHS ---
 # Uncomment for local mac silicon run
-ARC_DATA_DIR = "../../dataset/script-tests/grouped-tasks"
+ARC_DATA_DIR = "../../dataset/script-tests/grouped-tasks-0-4x"
 OUTPUT_DIR = os.path.join("../runs", f"test_{timestamp}")
 
 # Add VISUALISE option for single-threaded NCAs

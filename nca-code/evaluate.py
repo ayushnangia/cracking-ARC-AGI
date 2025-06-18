@@ -71,7 +71,10 @@ def evaluate_submission(
     solutions_dict: dict,
     challenges_dict: dict,
     output_dir_path: str,
-    visualize: bool = False
+    visualize: bool = False,
+    pdf_object: PdfPages = None,
+    results_filename: str = "results.md",
+    pdf_title: str = None
 ) -> dict:
     """
     Compare an ARC-AGI submission against the ground truth solutions, compute per-task correctness and pixel accuracy,
@@ -94,6 +97,12 @@ def evaluate_submission(
         - both predicted attempts
         - the ground truth grid
         Padded regions will be shown in grey for shape mismatches.
+    pdf_object : PdfPages, optional
+        An existing PdfPages object to write visualization to. If None, a new PDF is created.
+    results_filename : str, optional
+        Filename for the output results markdown file.
+    pdf_title : str, optional
+        If provided, a title page with this string is added to the PDF.
 
     Returns
     -------
@@ -146,9 +155,22 @@ def evaluate_submission(
 
     # Prepare PDF if visualization requested
     pdf = None
+    own_pdf_management = False
     if visualize:
-        pdf_path = os.path.join(output_dir_path, "visualization.pdf")
-        pdf = PdfPages(pdf_path)
+        if pdf_object is None:
+            pdf_path = os.path.join(output_dir_path, "visualization.pdf")
+            pdf = PdfPages(pdf_path)
+            own_pdf_management = True
+        else:
+            pdf = pdf_object
+
+        if pdf_title and pdf:
+            # Create a title page for this section
+            fig = plt.figure(figsize=(8, 11))
+            fig.text(0.5, 0.5, pdf_title, ha='center', va='center', fontsize=20, wrap=True)
+            pdf.savefig(fig)
+            plt.close(fig)
+
         print("Please wait visualising...")
         print("This might take upto 2 minutes if there are a large number of tasks.")
 
@@ -342,7 +364,8 @@ def evaluate_submission(
                 plt.tight_layout(rect=[0, 0, 1, 0.95])
                 pdf.savefig(fig)
                 plt.close(fig)
-        pdf.close() # Close PDF after the entire visualization loop
+        if own_pdf_management:
+            pdf.close() # Close PDF after the entire visualization loop
 
     # 10) Compute overall stats
     num_total_tasks_in_both = len(common_task_ids)
@@ -355,9 +378,10 @@ def evaluate_submission(
     )
 
     # 11) Write summary to results.md
-    results_file_path = os.path.join(output_dir_path, "results.md")
+    results_file_path = os.path.join(output_dir_path, results_filename)
     with open(results_file_path, "w") as f:
         f.write(f"# ARC-AGI Evaluation Results\n\n") # Enhanced header
+        f.write(f"**Submission File:** `{os.path.basename(results_filename).replace('results_', '').replace('.md', '.json')}`\n\n")
         f.write(f"**Total tasks evaluated:** {num_total_tasks_in_both}\n")
         if mismatched_submission_ids:
             f.write(f"**Tasks in submission but not in solutions:** {', '.join(mismatched_submission_ids)}\n")
@@ -390,7 +414,7 @@ def evaluate_submission(
             f.write("| " + " | ".join(row) + " |\n")
 
     print(f"\nEvaluation complete.")
-    print(f"Evaluation results saved to: {os.path.join(output_dir_path, 'results.md')}")
+    print(f"Evaluation results saved to: {os.path.join(output_dir_path, results_filename)}")
 
     # 14) Return dictionary of results
     return {
